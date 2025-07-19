@@ -1,37 +1,26 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
-  "CXX"
-  )
-# The set of files for implicit dependencies of each language:
-set(CMAKE_DEPENDS_CHECK_CXX
-  "/Users/amitjoshi/Desktop/Voyage/src/camera.cc" "/Users/amitjoshi/Desktop/Voyage/build/src/CMakeFiles/menger.dir/camera.cc.o"
-  "/Users/amitjoshi/Desktop/Voyage/src/main.cc" "/Users/amitjoshi/Desktop/Voyage/build/src/CMakeFiles/menger.dir/main.cc.o"
-  "/Users/amitjoshi/Desktop/Voyage/src/menger.cc" "/Users/amitjoshi/Desktop/Voyage/build/src/CMakeFiles/menger.dir/menger.cc.o"
-  "/Users/amitjoshi/Desktop/Voyage/src/shaders.cc" "/Users/amitjoshi/Desktop/Voyage/build/src/CMakeFiles/menger.dir/shaders.cc.o"
-  )
-set(CMAKE_CXX_COMPILER_ID "Clang")
-
-# Preprocessor definitions for this target.
-set(CMAKE_TARGET_DEFINITIONS_CXX
-  "GLM_ENABLE_EXPERIMENTAL"
-  "GLM_FORCE_RADIANS=1"
-  "GLM_FORCE_SIZE_FUNC=1"
   )
 
-# The include file search paths:
-set(CMAKE_CXX_TARGET_INCLUDE_PATH
-  "/usr/local/include"
-  "/opt/local/include"
-  "../lib"
-  "/usr/local/Cellar/glew/2.2.0_1/include"
-  "../lib/utgraphicsutil"
-  "../third-party/glm"
-  "/usr/local/include/eigen3"
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/Users/amitjoshi2724/Desktop/Voyage/lib/utgraphicsutil/debuggl.cc" "src/CMakeFiles/menger.dir/__/lib/utgraphicsutil/debuggl.cc.o" "gcc" "src/CMakeFiles/menger.dir/__/lib/utgraphicsutil/debuggl.cc.o.d"
+  "/Users/amitjoshi2724/Desktop/Voyage/src/camera.cc" "src/CMakeFiles/menger.dir/camera.cc.o" "gcc" "src/CMakeFiles/menger.dir/camera.cc.o.d"
+  "/Users/amitjoshi2724/Desktop/Voyage/src/main.cc" "src/CMakeFiles/menger.dir/main.cc.o" "gcc" "src/CMakeFiles/menger.dir/main.cc.o.d"
+  "/Users/amitjoshi2724/Desktop/Voyage/src/menger.cc" "src/CMakeFiles/menger.dir/menger.cc.o" "gcc" "src/CMakeFiles/menger.dir/menger.cc.o.d"
+  "/Users/amitjoshi2724/Desktop/Voyage/src/shaders.cc" "src/CMakeFiles/menger.dir/shaders.cc.o" "gcc" "src/CMakeFiles/menger.dir/shaders.cc.o.d"
   )
 
-# Targets to which this target links.
-set(CMAKE_TARGET_LINKED_INFO_FILES
-  "/Users/amitjoshi/Desktop/Voyage/build/CMakeFiles/utgraphicsutil.dir/DependInfo.cmake"
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_LINKED_INFO_FILES
+  )
+
+# Targets to which this target links which contain Fortran sources.
+set(CMAKE_Fortran_TARGET_FORWARD_LINKED_INFO_FILES
   )
 
 # Fortran module output directory.

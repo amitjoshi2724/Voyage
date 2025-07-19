@@ -224,7 +224,7 @@ void main()
 		vec3 fragToLight = world_coordinates.xyz - light_position.xyz; 
 	    float closestDepth = texture(depthMap, fragToLight).r;
 
-	    closestDepth *= 25; // change to actually use a variable pls cutie ok i love u so much
+	    closestDepth *= 50; // Updated to match shadowFar
 	    float currentDepth = length(fragToLight);  
 
 	    float bias = 0.05; 
@@ -723,13 +723,13 @@ void main(){
   	vec3 fragToLight = world_coordinates.xyz - light_position.xyz; 
     float closestDepth = texture(depthMap, fragToLight).r;
 
-    closestDepth *= 25; // change to actually use a variable pls cutie ok i love u so much
+    closestDepth *= 50; // Updated to match shadowFar
     float currentDepth = length(fragToLight);  
 
-    float bias = 0.05; 
+    	float bias = 0.1; // Increased bias to reduce shadow acne
 	float shadow = currentDepth - bias > closestDepth ? 0.24 : 1.0;   
 	if(closestDepth == 0){
-		shadow = 0.5;
+		shadow = 1.0; // No shadow when depth map lookup fails
 	}
   	if(additiveBlending == 1){
 		fragment_color = clamp(shadow * (color*0.7 + floor_color*0.3), 0.0, 1.0);

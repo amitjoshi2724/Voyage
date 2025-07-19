@@ -1,0 +1,42 @@
+# macOS-specific configuration using Homebrew libraries
+
+# Set Homebrew paths
+set(HOMEBREW_PREFIX "/opt/homebrew")
+
+# GLEW configuration
+set(GLEW_INCLUDE_DIRS "${HOMEBREW_PREFIX}/include")
+set(GLEW_LIBRARIES "${HOMEBREW_PREFIX}/lib/libGLEW.dylib")
+INCLUDE_DIRECTORIES(${GLEW_INCLUDE_DIRS})
+LINK_LIBRARIES(${GLEW_LIBRARIES})
+
+# GLFW configuration
+set(GLFW3_INCLUDE_DIRS "${HOMEBREW_PREFIX}/include")
+set(GLFW3_STATIC_LIBRARIES "${HOMEBREW_PREFIX}/lib/libglfw.dylib")
+INCLUDE_DIRECTORIES(${GLFW3_INCLUDE_DIRS})
+LIST(APPEND stdgl_libraries ${GLFW3_STATIC_LIBRARIES} ${GLEW_LIBRARIES})
+
+# GLM configuration
+set(GLM_INCLUDE_DIRS "${HOMEBREW_PREFIX}/include")
+INCLUDE_DIRECTORIES(${GLM_INCLUDE_DIRS})
+
+# JPEG configuration
+set(JPEG_INCLUDE_DIRS "${HOMEBREW_PREFIX}/include")
+set(JPEG_LIBRARIES "${HOMEBREW_PREFIX}/lib/libjpeg.dylib")
+INCLUDE_DIRECTORIES(${JPEG_INCLUDE_DIRS})
+
+# Set JPEG variables for utgraphicsutil
+set(JPEG_LIBRARY ${JPEG_LIBRARIES})
+set(JPEG_INCLUDE_DIR ${JPEG_INCLUDE_DIRS})
+
+# OpenGL framework (macOS specific)
+find_library(OPENGL_LIBRARY OpenGL)
+find_library(COCOA_LIBRARY Cocoa)
+find_library(IOKIT_LIBRARY IOKit)
+find_library(COREVIDEO_LIBRARY CoreVideo)
+
+LIST(APPEND stdgl_libraries ${OPENGL_LIBRARY} ${COCOA_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+
+message(STATUS "GLEW_LIBRARIES=${GLEW_LIBRARIES}")
+message(STATUS "GLFW_LIBRARIES=${GLFW3_STATIC_LIBRARIES}")
+message(STATUS "JPEG_LIBRARIES=${JPEG_LIBRARIES}")
+message(STATUS "macOS OpenGL framework found") 

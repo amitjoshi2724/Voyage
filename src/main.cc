@@ -1020,22 +1020,8 @@ int main(int argc, char* argv[])
 
 	float shadowAspect = (float)SHADOW_WIDTH/(float)SHADOW_HEIGHT;
 	float shadowNear = 1.0f;
-	float shadowFar = 25.0f;
-	glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), shadowAspect, shadowNear, shadowFar); 
-	std::vector<glm::mat4> shadowTransforms;
-	glm::vec3 lightPos(light_position);
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0)));
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0)));
-	shadowTransforms.push_back(shadowProj * 
-		glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0)));
+	float shadowFar = 50.0f;  // Increased to cover entire water plane (-20 to +20)
+	glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), shadowAspect, shadowNear, shadowFar);
 
 
 	//LOOP DE DOOP----------------------------------------------------------------------------------------
@@ -1143,8 +1129,23 @@ int main(int argc, char* argv[])
 		int ugh = showOcean? 1 : 0;
 		glm::vec4 temp_eye = glm::vec4(g_camera.eye[0], g_camera.eye[1], g_camera.eye[2], 1.0f);
 
-			//----------------Render the depth boat shadow thing--------------
+		// Calculate shadow transforms based on current boat position
+		std::vector<glm::mat4> shadowTransforms;
+		glm::vec3 lightPos(light_position);
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0)));
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0)));
+		shadowTransforms.push_back(shadowProj * 
+			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0)));
 
+		//----------------Render the depth boat shadow thing--------------
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
@@ -1183,6 +1184,13 @@ int main(int argc, char* argv[])
 		//bind the cubemap that we drew
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
+		
+		// Set the shadow map uniform for all shaders that use it
+		CHECK_GL_ERROR(glUseProgram(floor_program_id));
+		CHECK_GL_ERROR(glUniform1i(glGetUniformLocation(floor_program_id, "depthMap"), 0));
+		
+		CHECK_GL_ERROR(glUseProgram(ocean_program_id));
+		CHECK_GL_ERROR(glUniform1i(glGetUniformLocation(ocean_program_id, "depthMap"), 0));
 
 		
 		//back to regular stuff
