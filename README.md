@@ -107,4 +107,4 @@ docker run --rm -it --entrypoint="" voyage-simulation bash -c "export LD_LIBRARY
 
 ## 📄 License
 
-This project is part of a graphics course final project. 
+This project was my (Amit Joshi) UT CS 378H (Computer Graphics Honors) Final Project

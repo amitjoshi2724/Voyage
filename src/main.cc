@@ -417,7 +417,7 @@ int main(int argc, char* argv[])
 	//initializes camera
 	g_camera.init();
 
-	std::string window_title = "Menger";
+	std::string window_title = "Voyage";
 	if (!glfwInit()) exit(EXIT_FAILURE);
 	g_menger = std::make_shared<Menger>();
 	glfwSetErrorCallback(ErrorCallback);
