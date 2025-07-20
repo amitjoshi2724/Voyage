@@ -994,35 +994,74 @@ int main(int argc, char* argv[])
 
 	//-----shadow mapping setup---------------------------------------------------------------------------
 
+	// ============================================================================
+	// SHADOW MAPPING SETUP
+	// ============================================================================
+	
+	// Create framebuffer for shadow map rendering
 	unsigned int depthMapFBO;
 	glGenFramebuffers(1, &depthMapFBO);  
 
+	// Create cubemap texture for storing depth values from 6 light perspectives
 	unsigned int depthCubemap;
 	glGenTextures(1, &depthCubemap);
 	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	
+	// Initialize all 6 faces of the cubemap
 	glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
-	for (unsigned int i = 0; i < 6; ++i){
+	for (unsigned int i = 0; i < 6; ++i) {
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, 
 			SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL); 
 	}
 
+	// Configure cubemap texture parameters
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);  
 
+	// Attach cubemap to framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
-	glDrawBuffer(GL_NONE);
+	glDrawBuffer(GL_NONE);  // No color output needed for depth-only rendering
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);  
 
+	// Shadow projection matrix setup
 	float shadowAspect = (float)SHADOW_WIDTH/(float)SHADOW_HEIGHT;
-	float shadowNear = 1.0f;
-	float shadowFar = 50.0f;  // Increased to cover entire water plane (-20 to +20)
+	float shadowNear = 0.1f;
+	float shadowFar = 50.0f;
 	glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), shadowAspect, shadowNear, shadowFar);
-
+	
+	// ============================================================================
+	// SHADOW TRANSFORM MATRICES
+	// ============================================================================
+	// Create 6 view matrices for cubemap faces (light looking in 6 directions)
+	std::vector<glm::mat4> shadowTransforms;
+	glm::vec3 lightPos(light_position);
+	
+	// Define the 6 directions and up vectors for cubemap faces
+	struct CubemapFace {
+		glm::vec3 direction;
+		glm::vec3 up;
+	};
+	
+	CubemapFace faces[6] = {
+		{glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)},  // +X face
+		{glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)},  // -X face  
+		{glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0,  0.0, -1.0)}, // +Y face
+		{glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0,  0.0, -1.0)}, // -Y face
+		{glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)},  // +Z face
+		{glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0, -1.0, 0.0)}   // -Z face
+	};
+	
+	// Generate shadow transform matrices for each cubemap face
+	for (int i = 0; i < 6; i++) {
+		glm::mat4 lightView = glm::lookAt(lightPos, lightPos + faces[i].direction, faces[i].up);
+		shadowTransforms.push_back(shadowProj * lightView);
+	}
+	
 
 	//LOOP DE DOOP----------------------------------------------------------------------------------------
 	while (!glfwWindowShouldClose(window)) {
@@ -1129,51 +1168,54 @@ int main(int argc, char* argv[])
 		int ugh = showOcean? 1 : 0;
 		glm::vec4 temp_eye = glm::vec4(g_camera.eye[0], g_camera.eye[1], g_camera.eye[2], 1.0f);
 
-		// Calculate shadow transforms based on current boat position
-		std::vector<glm::mat4> shadowTransforms;
-		glm::vec3 lightPos(light_position);
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0,-1.0, 0.0)));
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)));
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0, 0.0,-1.0)));
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0,-1.0, 0.0)));
-		shadowTransforms.push_back(shadowProj * 
-			glm::lookAt(lightPos, lightPos + glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0,-1.0, 0.0)));
-
-		//----------------Render the depth boat shadow thing--------------
+		
+		// ============================================================================
+		// SHADOW MAP RENDERING PASS
+		// ============================================================================
+		// Render the boat from the light's perspective to create depth cubemap
+		
+		// Set up shadow map rendering viewport and framebuffer
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
+		// Ensure cubemap is attached to framebuffer
 		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
-		//glDrawBuffer(GL_NONE);
-		//glReadBuffer(GL_NONE);
-		
 
+		// Render boat geometry for shadow map
 		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[KBoatVao]));
 		CHECK_GL_ERROR(glUseProgram(depth_boat_program_id));
 
+		// Set boat transformation uniforms
 		CHECK_GL_ERROR(glUniform4fv(depth_boat_light_position_location, 1, &light_position[0]));
 		CHECK_GL_ERROR(glUniform1f(depth_boat_theta_location, boatTheta));
 		CHECK_GL_ERROR(glUniform4fv(depth_boat_translate_by_location, 1, &boat_position[0]));
 		CHECK_GL_ERROR(glUniform1f(depth_boat_far_plane_location, shadowFar));
 
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix1_location, 1, GL_FALSE, &shadowTransforms[0][0][0]));
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix2_location, 1, GL_FALSE, &shadowTransforms[1][0][0]));
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix3_location, 1, GL_FALSE, &shadowTransforms[2][0][0]));
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix4_location, 1, GL_FALSE, &shadowTransforms[3][0][0]));
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix5_location, 1, GL_FALSE, &shadowTransforms[4][0][0]));
-		CHECK_GL_ERROR(glUniformMatrix4fv(depth_boat_shadow_matrix6_location, 1, GL_FALSE, &shadowTransforms[5][0][0]));
+			// Set shadow transform matrices for all 6 cubemap faces
+	GLint shadowMatrixLocations[6] = {
+		depth_boat_shadow_matrix1_location,
+		depth_boat_shadow_matrix2_location,
+		depth_boat_shadow_matrix3_location,
+		depth_boat_shadow_matrix4_location,
+		depth_boat_shadow_matrix5_location,
+		depth_boat_shadow_matrix6_location
+	};
+	
+	for (int i = 0; i < 6; i++) {
+		CHECK_GL_ERROR(glUniformMatrix4fv(shadowMatrixLocations[i], 1, GL_FALSE, &shadowTransforms[i][0][0]));
+	}
 
+		// Render boat to shadow map
 		CHECK_GL_ERROR(glDrawElements(GL_PATCHES, boat_faces.size() * 4, GL_UNSIGNED_INT, 0));
 
+		// Switch back to main framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); 
 
+		// ============================================================================
+		// MAIN RENDERING SETUP
+		// ============================================================================
+		// Set up main rendering viewport and clear buffers
 		glfwGetFramebufferSize(window, &window_width, &window_height);
 		glViewport(0, 0, window_width, window_height);
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -1181,19 +1223,23 @@ int main(int argc, char* argv[])
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glDepthFunc(GL_LESS);
 
-		//bind the cubemap that we drew
+		// ============================================================================
+		// SHADOW MAP BINDING
+		// ============================================================================
+		// Bind the shadow cubemap to texture unit 0 for all shaders
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 		
-		// Set the shadow map uniform for all shaders that use it
-		CHECK_GL_ERROR(glUseProgram(floor_program_id));
-		CHECK_GL_ERROR(glUniform1i(glGetUniformLocation(floor_program_id, "depthMap"), 0));
-		
-		CHECK_GL_ERROR(glUseProgram(ocean_program_id));
-		CHECK_GL_ERROR(glUniform1i(glGetUniformLocation(ocean_program_id, "depthMap"), 0));
+			// Set shadow map uniform for all shaders that use shadow mapping
+	GLuint shadowShaders[] = {floor_program_id, ocean_program_id};
+	for (GLuint shader : shadowShaders) {
+		CHECK_GL_ERROR(glUseProgram(shader));
+		CHECK_GL_ERROR(glUniform1i(glGetUniformLocation(shader, "depthMap"), 0));
+	}
 
-		
-		//back to regular stuff
+		// ============================================================================
+		// MAIN SCENE RENDERING
+		// ============================================================================
 
 
     	/*
@@ -1230,7 +1276,7 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glPatchParameteri(GL_PATCH_VERTICES, 4));
 		CHECK_GL_ERROR(glUseProgram(floor_program_id));
 
-		//Update floor uniforms
+		// Set floor shader uniforms
 		CHECK_GL_ERROR(glUniformMatrix4fv(floor_projection_matrix_location, 1, GL_FALSE, &projection_matrix[0][0]));
 		CHECK_GL_ERROR(glUniformMatrix4fv(floor_view_matrix_location, 1, GL_FALSE, &view_matrix[0][0]));
 		CHECK_GL_ERROR(glUniform4fv(floor_light_position_location, 1, &light_position[0]));
@@ -1288,6 +1334,7 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[kWireframeVao]));
 		CHECK_GL_ERROR(glUseProgram(ocean_program_id));
 
+		// Set ocean shader uniforms
 		CHECK_GL_ERROR(glUniformMatrix4fv(ocean_projection_matrix_location, 1, GL_FALSE, &projection_matrix[0][0]));
 		CHECK_GL_ERROR(glUniformMatrix4fv(ocean_view_matrix_location, 1, GL_FALSE, &view_matrix[0][0]));
 		CHECK_GL_ERROR(glUniform4fv(ocean_light_position_location, 1, &light_position[0]));
@@ -1320,14 +1367,12 @@ int main(int argc, char* argv[])
 		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[KBoatVao]));
 		CHECK_GL_ERROR(glUseProgram(boat_program_id));
 
+		// Set boat shader uniforms
 		CHECK_GL_ERROR(glUniformMatrix4fv(boat_projection_matrix_location, 1, GL_FALSE, &projection_matrix[0][0]));
 		CHECK_GL_ERROR(glUniformMatrix4fv(boat_view_matrix_location, 1, GL_FALSE, &view_matrix[0][0]));
 		CHECK_GL_ERROR(glUniform4fv(boat_light_position_location, 1, &light_position[0]));
 
-    //MODIFY BOAT POSITION TO HAVE THE HEIGHT FOR THIS GIVEN TIME
-
-
-
+		// Boat transformation and animation uniforms
 		CHECK_GL_ERROR(glUniform4fv(boat_translate_by_location, 1, &boat_position[0]));
 		CHECK_GL_ERROR(glUniform1i(boat_outerTess_location, 1));
 		CHECK_GL_ERROR(glUniform1i(boat_innerTess_location, 1));

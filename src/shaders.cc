@@ -221,14 +221,22 @@ void main()
 		dot_nl = clamp(dot_nl, 0.0, 1.0);
 
 
+		// ============================================================================
+		// SHADOW CALCULATION (Boat Fragment Shader)
+		// ============================================================================
+		// Calculate vector from fragment to light source
 		vec3 fragToLight = world_coordinates.xyz - light_position.xyz; 
+		
+		// Sample depth from shadow cubemap
 	    float closestDepth = texture(depthMap, fragToLight).r;
-
-	    closestDepth *= 50; // Updated to match shadowFar
+	    closestDepth *= 50; // Convert from [0,1] to world space depth
+	    
+	    // Calculate current fragment's distance from light
 	    float currentDepth = length(fragToLight);  
 
+	    // Shadow comparison with bias to prevent shadow acne
 	    float bias = 0.05; 
-		float shadow = currentDepth - bias > closestDepth ? 0.24 : 1.0;   
+		float shadow = currentDepth - bias > closestDepth ? 0.24 : 1.0;
 
 		fragment_color = clamp(shadow * (dot_nl * color), 0.0, 1.0);
 	}
@@ -720,17 +728,30 @@ void main(){
   	vec4 floor_color = clamp(cutie_dot_nl*sandColor, 0.0, 1.0);
 
   	
-  	vec3 fragToLight = world_coordinates.xyz - light_position.xyz; 
-    float closestDepth = texture(depthMap, fragToLight).r;
+  	  	// ============================================================================
+  	// SHADOW CALCULATION
+  	// ============================================================================
+  	// Calculate vector from fragment to light source
+  	vec3 fragToLight = world_coordinates.xyz - light_position.xyz; // should be +h on world_coordinates.y
+  	
+  	// Sample depth from shadow cubemap
+  	float closestDepth = texture(depthMap, fragToLight).r;
+  	closestDepth *= 50; // Convert from [0,1] to world space depth
+  	
+  	// Calculate current fragment's distance from light
+  	float currentDepth = length(fragToLight);  
 
-    closestDepth *= 50; // Updated to match shadowFar
-    float currentDepth = length(fragToLight);  
-
-    	float bias = 0.1; // Increased bias to reduce shadow acne
-	float shadow = currentDepth - bias > closestDepth ? 0.24 : 1.0;   
-	if(closestDepth == 0){
-		shadow = 1.0; // No shadow when depth map lookup fails
-	}
+  	// Shadow comparison with bias to prevent shadow acne
+  	float bias = 0.1; // Increased bias to reduce shadow acne
+  	float shadow = currentDepth - bias > closestDepth ? 0.24 : 1.0;   
+  	
+  	// Handle cases where shadow map lookup fails
+  	if(closestDepth == 0) {
+  		shadow = 0; // No shadow when depth map lookup fails
+  	}
+  	
+  	// Debug: Output shadow value as color to see what's happening
+  	// fragment_color = vec4(shadow, shadow, shadow, 1.0); // Debug shadow values
   	if(additiveBlending == 1){
 		fragment_color = clamp(shadow * (color*0.7 + floor_color*0.3), 0.0, 1.0);
 	}
