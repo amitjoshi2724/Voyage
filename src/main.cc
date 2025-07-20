@@ -1035,32 +1035,26 @@ int main(int argc, char* argv[])
 	glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), shadowAspect, shadowNear, shadowFar);
 	
 	// ============================================================================
-	// SHADOW TRANSFORM MATRICES
+	// SHADOW TRANSFORM MATRICES (ChatGPT's approach)
 	// ============================================================================
-	// Create 6 view matrices for cubemap faces (light looking in 6 directions)
-	std::vector<glm::mat4> shadowTransforms;
-	glm::vec3 lightPos(light_position);
-	
-	// Define the 6 directions and up vectors for cubemap faces
-	struct CubemapFace {
-		glm::vec3 direction;
-		glm::vec3 up;
+	// 6 cubemap directions + up vectors (matching ChatGPT's setup)
+	glm::vec3 directions[6] = {
+		glm::vec3( 1,  0,  0),  // +X
+		glm::vec3(-1,  0,  0),  // -X
+		glm::vec3( 0,  1,  0),  // +Y
+		glm::vec3( 0, -1,  0),  // -Y
+		glm::vec3( 0,  0,  1),  // +Z
+		glm::vec3( 0,  0, -1)   // -Z
 	};
-	
-	CubemapFace faces[6] = {
-		{glm::vec3( 1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)},  // +X face
-		{glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)},  // -X face  
-		{glm::vec3( 0.0, 1.0, 0.0), glm::vec3(0.0,  0.0, -1.0)}, // +Y face
-		{glm::vec3( 0.0,-1.0, 0.0), glm::vec3(0.0,  0.0, -1.0)}, // -Y face
-		{glm::vec3( 0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)},  // +Z face
-		{glm::vec3( 0.0, 0.0,-1.0), glm::vec3(0.0, -1.0, 0.0)}   // -Z face
+
+	glm::vec3 ups[6] = {
+		glm::vec3(0, -1,  0),  // +X up
+		glm::vec3(0, -1,  0),  // -X up
+		glm::vec3(0,  0,  1),  // +Y up
+		glm::vec3(0,  0, -1),  // -Y up
+		glm::vec3(0, -1,  0),  // +Z up
+		glm::vec3(0, -1,  0)   // -Z up
 	};
-	
-	// Generate shadow transform matrices for each cubemap face
-	for (int i = 0; i < 6; i++) {
-		glm::mat4 lightView = glm::lookAt(lightPos, lightPos + faces[i].direction, faces[i].up);
-		shadowTransforms.push_back(shadowProj * lightView);
-	}
 	
 
 	//LOOP DE DOOP----------------------------------------------------------------------------------------
@@ -1169,45 +1163,47 @@ int main(int argc, char* argv[])
 		glm::vec4 temp_eye = glm::vec4(g_camera.eye[0], g_camera.eye[1], g_camera.eye[2], 1.0f);
 
 		
+				// ============================================================================
+		// SHADOW MAP RENDERING PASS (ChatGPT's approach)
 		// ============================================================================
-		// SHADOW MAP RENDERING PASS
-		// ============================================================================
-		// Render the boat from the light's perspective to create depth cubemap
-		
-		// Set up shadow map rendering viewport and framebuffer
+		// BIND THE FBO AND DRAW ALL 6 FACES
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
 
-		// Ensure cubemap is attached to framebuffer
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
-
-		// Render boat geometry for shadow map
-		CHECK_GL_ERROR(glBindVertexArray(g_array_objects[KBoatVao]));
+		// Set up depth shader
 		CHECK_GL_ERROR(glUseProgram(depth_boat_program_id));
-
-		// Set boat transformation uniforms
+		CHECK_GL_ERROR(glUniform1f(depth_boat_far_plane_location, shadowFar));
 		CHECK_GL_ERROR(glUniform4fv(depth_boat_light_position_location, 1, &light_position[0]));
 		CHECK_GL_ERROR(glUniform1f(depth_boat_theta_location, boatTheta));
 		CHECK_GL_ERROR(glUniform4fv(depth_boat_translate_by_location, 1, &boat_position[0]));
-		CHECK_GL_ERROR(glUniform1f(depth_boat_far_plane_location, shadowFar));
 
-			// Set shadow transform matrices for all 6 cubemap faces
-	GLint shadowMatrixLocations[6] = {
-		depth_boat_shadow_matrix1_location,
-		depth_boat_shadow_matrix2_location,
-		depth_boat_shadow_matrix3_location,
-		depth_boat_shadow_matrix4_location,
-		depth_boat_shadow_matrix5_location,
-		depth_boat_shadow_matrix6_location
-	};
-	
-	for (int i = 0; i < 6; i++) {
-		CHECK_GL_ERROR(glUniformMatrix4fv(shadowMatrixLocations[i], 1, GL_FALSE, &shadowTransforms[i][0][0]));
-	}
+		// Render to each cubemap face
+		for (unsigned int i = 0; i < 6; ++i) {
+			glm::vec3 lightPos(light_position);
+			glm::mat4 view = glm::lookAt(lightPos, lightPos + directions[i], ups[i]);
+			glm::mat4 lightMatrix = shadowProj * view;
 
-		// Render boat to shadow map
-		CHECK_GL_ERROR(glDrawElements(GL_PATCHES, boat_faces.size() * 4, GL_UNSIGNED_INT, 0));
+			// Attach the correct cubemap face
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+			                       GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+			                       depthCubemap, 0);
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			// Set the light space matrix for this face
+			GLint shadowMatrixLocations[6] = {
+				depth_boat_shadow_matrix1_location,
+				depth_boat_shadow_matrix2_location,
+				depth_boat_shadow_matrix3_location,
+				depth_boat_shadow_matrix4_location,
+				depth_boat_shadow_matrix5_location,
+				depth_boat_shadow_matrix6_location
+			};
+			CHECK_GL_ERROR(glUniformMatrix4fv(shadowMatrixLocations[i], 1, GL_FALSE, &lightMatrix[0][0]));
+
+			// Render boat geometry for this cubemap face
+			CHECK_GL_ERROR(glBindVertexArray(g_array_objects[KBoatVao]));
+			CHECK_GL_ERROR(glDrawElements(GL_PATCHES, boat_faces.size() * 4, GL_UNSIGNED_INT, 0));
+		}
 
 		// Switch back to main framebuffer
 		glBindFramebuffer(GL_FRAMEBUFFER, 0); 
